@@ -13,12 +13,27 @@
             justify-content: center;
             height: 100vh;
             margin: 0;
-            background-color: #f7f7f7;
+            /* 增加美食背景图 */
+            background-image: url('https://images.unsplash.com/photo-1495195134817-a169b2b2b1a0?q=80&w=1920&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+            color: white;
+        }
+
+        /* 增加黑色半透明遮罩，让文字更清晰 */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: -1;
         }
 
         h1 {
-            color: #333;
             margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
         }
 
         .wheel-container {
@@ -29,7 +44,7 @@
 
         canvas {
             border-radius: 50%;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
             transition: transform 4s cubic-bezier(0.15, 0, 0.15, 1);
         }
 
@@ -55,23 +70,39 @@
             border: none;
             border-radius: 25px;
             cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
 
         #spin-button:hover {
             background-color: #ff6b81;
         }
 
-        #result {
+        .result-container {
             margin-top: 20px;
+            text-align: center;
+            height: 220px; /* 预留空间，防止页面跳动 */
+        }
+
+        #result-text {
             font-size: 24px;
             font-weight: bold;
-            color: #2f3542;
-            height: 30px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+        }
+
+        #result-img {
+            margin-top: 15px;
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            display: none; /* 一开始隐藏图片 */
         }
     </style>
 </head>
 <body>
+
+    <div class="overlay"></div>
 
     <h1>上海美食大转盘</h1>
     
@@ -82,61 +113,28 @@
 
     <button id="spin-button">开始抽取</button>
     
-    <div id="result"></div>
+    <div class="result-container">
+        <div id="result-text"></div>
+        <img id="result-img" src="" alt="美食图片">
+    </div>
 
     <script>
-        const foods = ["小笼包", "生煎馒头", "葱油拌面", "排骨年糕", "麻辣烫", "黄焖鸡米饭", "炸鸡汉堡", "轻食沙拉", "螺蛳粉", "烧烤", "奶茶炸串", "日料寿司", "新疆炒米粉", "本帮红烧肉"];
-        const colors = ["#f1c40f", "#e67e22", "#e74c3c", "#9b59b6", "#3498db", "#1abc9c", "#2ecc71", "#d35400", "#c0392b", "#8e44ad", "#2980b9", "#16a085", "#27ae60", "#f39c12"];
+        // 将食物名字和图片链接绑定在一起
+        const foodList = [
+            { name: "小笼包", img: "https://images.unsplash.com/photo-1496116218417-1a781b1c416c?w=400" },
+            { name: "生煎包", img: "https://images.unsplash.com/photo-1625938146369-adc83368bda7?w=400" },
+            { name: "葱油拌面", img: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=400" },
+            { name: "排骨年糕", img: "https://images.unsplash.com/photo-1544025162-d76694265947?w=400" },
+            { name: "麻辣烫", img: "https://images.unsplash.com/photo-1574484284002-952d92456975?w=400" },
+            { name: "黄焖鸡米饭", img: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=400" },
+            { name: "炸鸡汉堡", img: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400" },
+            { name: "轻食沙拉", img: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400" },
+            { name: "螺蛳粉", img: "https://images.unsplash.com/photo-1598514982205-f36b96d1e8d4?w=400" },
+            { name: "烧烤", img: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400" },
+            { name: "奶茶炸串", img: "https://images.unsplash.com/photo-1558850026-66385cfd2d7c?w=400" },
+            { name: "日料寿司", img: "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=400" },
+            { name: "新疆炒米粉", img: "https://images.unsplash.com/photo-1525351484163-7529414344d8?w=400" },
+            { name: "红烧肉", img: "https://images.unsplash.com/photo-1534080564583-6be75777b70a?w=400" }
+        ];
         
-        const canvas = document.getElementById('wheelCanvas');
-        const ctx = canvas.getContext('2d');
-        const btn = document.getElementById('spin-button');
-        const resultDisplay = document.getElementById('result');
-        
-        const numSegments = foods.length;
-        const segmentAngle = 2 * Math.PI / numSegments;
-        let currentRotation = 0;
-
-        // 绘制转盘
-        function drawWheel() {
-            foods.forEach((food, i) => {
-                const angle = i * segmentAngle;
-                ctx.beginPath();
-                ctx.fillStyle = colors[i % colors.length];
-                ctx.moveTo(200, 200);
-                ctx.arc(200, 200, 200, angle, angle + segmentAngle);
-                ctx.lineTo(200, 200);
-                ctx.fill();
-
-                // 绘制文字
-                ctx.save();
-                ctx.translate(200, 200);
-                ctx.rotate(angle + segmentAngle / 2);
-                ctx.textAlign = "right";
-                ctx.fillStyle = "white";
-                ctx.font = "bold 16px Arial";
-                ctx.fillText(food, 180, 5);
-                ctx.restore();
-            });
-        }
-
-        drawWheel();
-
-        // 旋转功能
-        btn.addEventListener('click', () => {
-            resultDisplay.innerText = "正在挑选...";
-            const randomSpin = Math.floor(Math.random() * 3600) + 1440; // 旋转 4-14 圈
-            currentRotation += randomSpin;
-            canvas.style.transform = `rotate(${currentRotation}deg)`;
-
-            // 计算结果
-            setTimeout(() => {
-                const finalAngle = (360 - (currentRotation % 360)) % 360;
-                const index = Math.floor((finalAngle / 360) * numSegments);
-                resultDisplay.innerText = `今天吃：${foods[index]}`;
-            }, 4000);
-        });
-    </script>
-
-</body>
-</html>
+        const colors = ["#f1c40f", "#e67e22", "#e74c3c", "#9b59b6", "#3498db", "#1
